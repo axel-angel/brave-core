@@ -30,6 +30,8 @@ class BraveAppMenu : public AppMenu {
                ui::mojom::MenuSourceType source_type =
                    ui::mojom::MenuSourceType::kNone) override;
   void ExecuteCommand(int command_id, int mouse_event_flags) override;
+  bool IsTriggerableEvent(views::MenuItemView* menu,
+                          const ui::Event& e) override;
   void OnMenuClosed(views::MenuItemView* menu) override;
 
  private:

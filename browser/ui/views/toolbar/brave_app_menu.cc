@@ -38,6 +38,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/button_menu_item_model.h"
 #include "ui/base/models/menu_model.h"
+#include "ui/events/event.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/background.h"
@@ -190,6 +191,17 @@ SidebarShowOptionMenu::SidebarShowOptionMenu(BraveAppMenu* app_menu,
       std::make_unique<SidebarShowOptionInMenuButton>(app_menu, model_, 2));
 }
 
+// Mirrors IsRecentTabsCommand() in chrome/browser/ui/views/toolbar/app_menu.cc.
+// The "Recent tabs" (History) menu items use staggered command ids - see
+// AppMenuModel::kMinRecentTabsCommandId - so that they don't collide with the
+// other unbounded menus.
+bool IsRecentTabsCommand(int command_id) {
+  return command_id >= IDC_FIRST_UNBOUNDED_MENU &&
+         ((command_id - IDC_FIRST_UNBOUNDED_MENU) %
+              AppMenuModel::kNumUnboundedMenuTypes ==
+          AppMenuModel::kMinRecentTabsCommandId - IDC_FIRST_UNBOUNDED_MENU);
+}
+
 }  // namespace
 
 BraveAppMenu::BraveAppMenu(BrowserWindowInterface* browser,
@@ -204,6 +216,21 @@ BraveAppMenu::BraveAppMenu(BrowserWindowInterface* browser,
 }
 
 BraveAppMenu::~BraveAppMenu() = default;
+
+bool BraveAppMenu::IsTriggerableEvent(views::MenuItemView* menu,
+                                      const ui::Event& e) {
+  // Middle-clicking a "Recent tabs" entry should open it in a background tab
+  // and keep the menu open. AppMenu::ShouldExecuteCommandWithoutClosingMenu()
+  // implements exactly that, but MenuController only consults it for events
+  // that IsTriggerableEvent() accepts, and the base implementation accepts
+  // left/right mouse buttons only. Bookmarks are let through the same way in
+  // AppMenu::IsTriggerableEvent().
+  if (e.IsMouseEvent() && (e.flags() & ui::EF_MIDDLE_MOUSE_BUTTON) &&
+      IsRecentTabsCommand(menu->GetCommand())) {
+    return true;
+  }
+  return AppMenu::IsTriggerableEvent(menu, e);
+}
 
 void BraveAppMenu::RunMenu(views::MenuButtonController* host,
                            ui::mojom::MenuSourceType source_type) {
